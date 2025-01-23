@@ -1,0 +1,1815 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableCellRenderer;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.time.Day;
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
+import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.data.general.DefaultPieDataset;
+import org.jfree.chart.plot.PiePlot;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import java.awt.*;
+import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.axis.DateAxis;
+import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.renderer.xy.XYItemRenderer;
+import org.jfree.chart.labels.StandardXYToolTipGenerator;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.text.DecimalFormat;
+import com.toedter.calendar.JDateChooser;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.print.PrinterException;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.sql.Date;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import java.io.BufferedWriter;
+
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.util.Vector;
+
+
+public class CakeShopPOS extends JFrame {
+    private Inventory inventory;
+    private Order order;
+    private DefaultTableModel inventoryTableModel;
+    private DefaultTableModel orderTableModel;
+    private DefaultTableModel stationSalesTableModel;
+    private DefaultTableModel progressTableModel;
+    private JTable orderTable; // Made orderTable a class-level variable
+    private DefaultTableModel topSellingCakesTableModel;
+private JTable topSellingCakesTable;   
+    private JComboBox<String> autocompleteComboBox;  // Declare here as an instance variable
+    private JPanel authPanel;
+    private JPanel mainPanel;
+
+    private JTextField inventoryCakeNameField, inventoryCakePriceField, inventoryCakeQuantityField, inventoryDateField;
+    private JTextField orderCakeNameField, orderCakeQuantityField;
+    private JComboBox<String> stationDropdown;
+    private DatabaseHelper dbHelper;
+    private boolean isAuthenticated = false;
+    private JSpinner dateSpinner; // Date picker for filtering sales
+    private JTable progressTable; // Class-level declaration
+
+// Inside createProgressPanel method
+
+
+private JMenuBar createMenuBar() {
+    JMenuBar menuBar = new JMenuBar();
+
+    JMenu themeMenu = new JMenu("Themes");
+    themeMenu.setFont(new Font("Arial", Font.PLAIN, 14));
+
+    JMenuItem lightThemeItem = new JMenuItem("Light Theme");
+    lightThemeItem.addActionListener(e -> changeTheme("light"));
+    themeMenu.add(lightThemeItem);
+
+    JMenuItem darkThemeItem = new JMenuItem("Dark Theme");
+    darkThemeItem.addActionListener(e -> changeTheme("dark"));
+    themeMenu.add(darkThemeItem);
+
+    JMenuItem intelliJThemeItem = new JMenuItem("IntelliJ Theme");
+    intelliJThemeItem.addActionListener(e -> changeTheme("intellij"));
+    themeMenu.add(intelliJThemeItem);
+
+    JMenuItem darculaThemeItem = new JMenuItem("Darcula Theme");
+    darculaThemeItem.addActionListener(e -> changeTheme("darcula"));
+    themeMenu.add(darculaThemeItem);
+
+    menuBar.add(themeMenu);
+
+    return menuBar;
+}
+
+    public CakeShopPOS() {
+    inventory = new Inventory();
+    order = new Order();
+    dbHelper = new DatabaseHelper();
+
+    setTitle(" Version 1.0");
+    setSize(1200, 1000); // Increase the size for better visibility
+    setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    setLayout(new BorderLayout());
+    setLocationRelativeTo(null); // Center the frame on the screen
+    
+    
+    // Set a custom window icon
+    setIconImage(new ImageIcon("Adonai.png").getImage());
+    
+    // Apply default FlatLaf theme (FlatLightLaf)
+    try {
+        UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+     initAuthPanel();
+        mainPanel = new JPanel(new BorderLayout());
+        
+        // Show authentication panel initially
+        setContentPane(authPanel);
+        setVisible(true);
+    }
+   private void initAuthPanel() {
+    authPanel = new JPanel(new GridBagLayout());
+    authPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20)); // Add padding around the panel
+    authPanel.setBackground(UIManager.getColor("Panel.background")); // Use FlatLaf default panel color
+
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(10, 10, 10, 10); // Spacing between components
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+
+    // Title Label
+    JLabel titleLabel = new JLabel("Login to Adonai");
+    titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+    titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    titleLabel.setForeground(UIManager.getColor("Label.foreground")); // Use theme's foreground color
+    gbc.gridx = 0;
+    gbc.gridy = 0;
+    gbc.gridwidth = 2; // Span across two columns
+    authPanel.add(titleLabel, gbc);
+
+    // Username label and field
+    JLabel usernameLabel = new JLabel("Username:");
+    usernameLabel.setFont(UIManager.getFont("Label.font"));
+    usernameLabel.setForeground(UIManager.getColor("Label.foreground")); // Use theme's color
+    gbc.gridx = 0;
+    gbc.gridy = 1;
+    gbc.gridwidth = 1;
+    authPanel.add(usernameLabel, gbc);
+
+    JTextField usernameField = new JTextField(15);
+    usernameField.setFont(UIManager.getFont("TextField.font")); // Consistent font
+    gbc.gridx = 1;
+    gbc.gridy = 1;
+    authPanel.add(usernameField, gbc);
+
+    // Password label and field
+    JLabel passwordLabel = new JLabel("Password:");
+    passwordLabel.setFont(UIManager.getFont("Label.font"));
+    passwordLabel.setForeground(UIManager.getColor("Label.foreground")); // Use theme's color
+    gbc.gridx = 0;
+    gbc.gridy = 2;
+    authPanel.add(passwordLabel, gbc);
+
+    JPasswordField passwordField = new JPasswordField(15);
+    passwordField.setFont(UIManager.getFont("PasswordField.font")); // Consistent font
+    gbc.gridx = 1;
+    gbc.gridy = 2;
+    authPanel.add(passwordField, gbc);
+
+    // Login button
+    JButton loginButton = new JButton("Login");
+    loginButton.setFont(UIManager.getFont("Button.font")); // Consistent button styling
+    loginButton.setBackground(UIManager.getColor("Button.background"));
+    loginButton.setForeground(UIManager.getColor("Button.foreground"));
+    loginButton.setFocusPainted(false); // Remove focus border
+    loginButton.setCursor(new Cursor(Cursor.HAND_CURSOR)); // Pointer cursor
+    gbc.gridx = 0;
+    gbc.gridy = 3;
+    gbc.gridwidth = 2;
+    gbc.anchor = GridBagConstraints.CENTER;
+    authPanel.add(loginButton, gbc);
+
+    // Login action
+    loginButton.addActionListener(e -> {
+        String username = usernameField.getText();
+        String password = new String(passwordField.getPassword());
+        if (authenticate(username, password)) {
+            switchToMainPanel();
+        } else {
+            JOptionPane.showMessageDialog(this, "Invalid username or password.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    });
+}
+
+
+    private boolean authenticate(String username, String password) {
+        // Replace with your actual authentication logic
+        return "admin".equals(username) && "password".equals(password);
+    }
+
+    private void switchToMainPanel() {
+        if (!isAuthenticated) {
+            isAuthenticated = true;
+            initializeMainPanel(); // Set up the main panel with components
+            setContentPane(mainPanel);
+            revalidate();
+            repaint();
+        }
+    }
+
+    private void initializeMainPanel() {
+
+    // Create a tabbed pane with custom styling
+    JTabbedPane tabbedPane = new JTabbedPane();
+    tabbedPane.setFont(new Font("Arial", Font.BOLD, 16));
+    tabbedPane.setBackground(new Color(41, 128, 185));
+    tabbedPane.setForeground(Color.WHITE);
+    tabbedPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+    // Add tabs with icons
+    tabbedPane.addTab("Inventory",
+            new ImageIcon(new ImageIcon("icons/inventory.png").getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH)),
+            createInventoryPanel(), "Manage Inventory");
+    tabbedPane.addTab("Order",
+            new ImageIcon(new ImageIcon("icons/order.png").getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH)),
+            createOrderPanel(), "Create Orders");
+    tabbedPane.addTab("Dashboard",
+            new ImageIcon(new ImageIcon("icons/dashboard.png").getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH)),
+            createDashboardPanel(), "View Sales Dashboard");
+    tabbedPane.addTab("Progress",
+            new ImageIcon(new ImageIcon("icons/progress.png").getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH)),
+            createProgressPanel(tabbedPane), "Track Progress");
+
+    // Add a change listener for authentication check
+    
+
+    // Create and set up the menu bar for theme switching
+    JMenuBar menuBar = createMenuBar();
+    setJMenuBar(menuBar);
+
+    // Create a custom status bar
+    JPanel statusBar = new JPanel(new BorderLayout());
+    statusBar.setBackground(new Color(41, 128, 185)); // Deep blue background for a modern look
+    statusBar.setBorder(BorderFactory.createMatteBorder(2, 0, 0, 0, new Color(52, 73, 94))); // Top border for separation
+
+    // Add a status message label
+    JLabel statusLabel = new JLabel(" ADONAI");
+    statusLabel.setForeground(Color.WHITE); // White text for readability
+    statusLabel.setFont(new Font("Gills", Font.BOLD, 14)); // Use a bold, modern font
+    statusLabel.setHorizontalAlignment(SwingConstants.LEFT);
+
+    // Add a clock label (dynamic time display)
+    JLabel clockLabel = new JLabel();
+    clockLabel.setForeground(Color.WHITE);
+    clockLabel.setFont(new Font("SansSerif", Font.ITALIC, 14));
+    clockLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+
+    // Add a timer to update the clock label every second
+    Timer timer = new Timer(1000, e -> {
+        String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm:ss a"));
+        clockLabel.setText(currentDateTime);
+    });
+    timer.start();
+
+    // Add the components to the status bar
+    statusBar.add(statusLabel, BorderLayout.WEST); // Status message on the left
+    statusBar.add(clockLabel, BorderLayout.EAST); // Clock on the right
+
+    // Add components to the frame
+    mainPanel.add(tabbedPane, BorderLayout.CENTER);
+    mainPanel.add(statusBar, BorderLayout.SOUTH);
+
+    // Set frame to be visible
+    setVisible(true);
+}
+private void changeTheme(String theme) {
+    try {
+        switch (theme.toLowerCase()) {
+            case "light":
+                UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
+                break;
+            case "dark":
+                UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatDarkLaf());
+                break;
+            case "intellij":
+                UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatIntelliJLaf());
+                break;
+            case "darcula":
+                UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatDarculaLaf());
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown theme: " + theme);
+        }
+        SwingUtilities.updateComponentTreeUI(this); // Refresh UI to apply the theme
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
+
+private JPanel createInventoryPanel() {
+    // Set the FlatLaf Light theme for consistent UI
+    try {
+        UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+
+    JPanel inventoryPanel = new JPanel(new BorderLayout());
+    inventoryPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Padding around the panel
+    inventoryPanel.setBackground(UIManager.getColor("Panel.background")); // Default FlatLight background
+
+    // Create table model and table
+    inventoryTableModel = new DefaultTableModel(new Object[]{"Name", "Price", "Quantity", "Date"}, 0);
+    JTable inventoryTable = new JTable(inventoryTableModel) {
+        @Override
+        public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+            Component c = super.prepareRenderer(renderer, row, column);
+            if (!isRowSelected(row)) {
+                // Alternate row colors for better readability
+                c.setBackground(row % 2 == 0 ? UIManager.getColor("Table.background") : UIManager.getColor("Table.alternateRowColor"));
+            }
+            return c;
+        }
+    };
+
+    // Make the table non-editable
+    inventoryTable.setDefaultEditor(Object.class, null);
+
+    // Customize table header
+    JTableHeader header = inventoryTable.getTableHeader();
+    header.setFont(UIManager.getFont("TableHeader.font"));
+    header.setBackground(UIManager.getColor("TableHeader.background"));
+    header.setForeground(UIManager.getColor("TableHeader.foreground"));
+
+    // Center-align header text
+    DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer();
+    headerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+    for (int i = 0; i < inventoryTable.getColumnModel().getColumnCount(); i++) {
+        inventoryTable.getColumnModel().getColumn(i).stHeaderRenderer(headerRenderer);
+    }
+
+    inventoryTable.setRowHeight(25);
+    inventoryTable.setShowGrid(true);
+    inventoryTable.setGridColor(UIManager.getColor("Table.gridColor"));
+    inventoryTable.setFillsViewportHeight(true); // Ensure the table stretches to fill the viewport
+
+    // Add table inside a scroll pane
+    JScrollPane tableScrollPane = new JScrollPane(inventoryTable);
+    tableScrollPane.setBorder(BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"), 1));
+
+    // Create button panel
+    JPanel buttonPanel = new JPanel();
+    buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
+    buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0)); // Add space above buttons
+    buttonPanel.setOpaque(false); // Match FlatLight background
+
+    // Add styled buttons
+    JButton addInventoryButton = createStyledButton("Add Inventory", new Color(30, 136, 229), Color.WHITE);
+    addInventoryButton.addActionListener(e -> openAddInventoryDialog());
+    buttonPanel.add(addInventoryButton);
+
+    JButton viewInventoryButton = createStyledButton("View Inventory", new Color(30, 136, 229), Color.WHITE);
+    viewInventoryButton.addActionListener(e -> updateInventoryTable());
+    buttonPanel.add(Box.createHorizontalStrut(10)); // Space between buttons
+    buttonPanel.add(viewInventoryButton);
+
+    JButton downloadInventoryButton = createStyledButton("Download Inventory", new Color(30, 136, 229), Color.WHITE);
+    downloadInventoryButton.addActionListener(e -> downloadInventory());
+    buttonPanel.add(Box.createHorizontalStrut(10)); // Space between buttons
+    buttonPanel.add(downloadInventoryButton);
+
+    // Align the button panel at the bottom
+    JPanel buttonContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    buttonContainer.setOpaque(false); // Match FlatLight background
+    buttonContainer.add(buttonPanel);
+
+    // Add components to the main panel
+    inventoryPanel.add(tableScrollPane, BorderLayout.CENTER);
+    inventoryPanel.add(buttonContainer, BorderLayout.SOUTH);
+
+    return inventoryPanel;
+}
+
+
+
+// Helper method to create styled buttons
+private JButton createStyledButton(String text, Color backgroundColor, Color textColor) {
+    JButton button = new JButton(text);
+    button.setBackground(backgroundColor);
+    button.setForeground(textColor);
+    button.setFocusPainted(false);
+    button.setFont(new Font("SansSerif", Font.PLAIN, 16));
+    button.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15)); // Add padding inside the button
+    return button;
+}
+
+private void openAddInventoryDialog() {
+    JDialog addInventoryDialog = new JDialog(this, "Add Inventory Item", true);
+    addInventoryDialog.setSize(600, 600);
+    addInventoryDialog.setLocationRelativeTo(this); // Center the dialog
+
+    // Create main content panel
+    JPanel contentPanel = new JPanel();
+    contentPanel.setLayout(new GridBagLayout()); // Using GridBagLayout for more control
+    contentPanel.setBackground(new Color(245, 245, 245)); // Light background color
+    contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20)); // Add padding
+
+    // Create a GridBagConstraints object to control the positioning of components
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(10, 10, 10, 10); // Add spacing between components
+    gbc.anchor = GridBagConstraints.WEST; // Align components to the left
+
+    // Item Name field with autocomplete
+    JLabel cakeNameLabel = new JLabel("Item Name:");
+    cakeNameLabel.setFont(new Font("Arial", Font.BOLD, 16));
+    cakeNameLabel.setForeground(new Color(30, 136, 229)); // Light blue color
+    gbc.gridx = 0;
+    gbc.gridy = 0;
+    contentPanel.add(cakeNameLabel, gbc);
+
+    inventoryCakeNameField = new JTextField();
+    inventoryCakeNameField.setPreferredSize(new Dimension(200, 30)); 
+
+    inventoryCakeNameField.setFont(new Font("Arial", Font.PLAIN, 16));
+    gbc.gridx = 1;
+    contentPanel.add(inventoryCakeNameField, gbc);
+
+    autocompleteComboBox = new JComboBox<>();
+    autocompleteComboBox.setVisible(false); // Initially invisible
+    gbc.gridx = 1;
+    gbc.gridy = 1;
+    contentPanel.add(autocompleteComboBox, gbc);
+
+    // Add KeyListener for autocomplete
+    inventoryCakeNameField.addKeyListener(new KeyAdapter() {
+        @Override
+        public void keyReleased(KeyEvent e) {
+            String input = inventoryCakeNameField.getText();
+            updateAutocompleteSuggestions(input);
+        }
+    });
+
+    // Item Price field
+    JLabel cakePriceLabel = new JLabel("Item Price:");
+    cakePriceLabel.setFont(new Font("Arial", Font.BOLD, 16));
+    cakePriceLabel.setForeground(new Color(30, 136, 229)); // Light blue color
+    gbc.gridx = 0;
+    gbc.gridy = 2;
+    contentPanel.add(cakePriceLabel, gbc);
+
+    inventoryCakePriceField = new JTextField();
+    inventoryCakePriceField.setFont(new Font("Arial", Font.PLAIN, 16));
+    inventoryCakePriceField.setPreferredSize(new Dimension(200, 30)); 
+
+    gbc.gridx = 1;
+    contentPanel.add(inventoryCakePriceField, gbc);
+
+    // Item Quantity field
+    JLabel cakeQuantityLabel = new JLabel("Item Quantity:");
+    cakeQuantityLabel.setFont(new Font("Arial", Font.BOLD, 16));
+    cakeQuantityLabel.setForeground(new Color(30, 136, 229)); // Light blue color
+    gbc.gridx = 0;
+    gbc.gridy = 3;
+    contentPanel.add(cakeQuantityLabel, gbc);
+
+    inventoryCakeQuantityField = new JTextField();
+    inventoryCakeQuantityField.setPreferredSize(new Dimension(200, 30)); 
+
+    inventoryCakeQuantityField.setFont(new Font("Arial", Font.PLAIN, 16));
+    gbc.gridx = 1;
+    contentPanel.add(inventoryCakeQuantityField, gbc);
+
+    // Button panel for Add and Cancel buttons
+    JPanel buttonPanel = new JPanel();
+    buttonPanel.setLayout(new GridLayout(1, 2, 10, 10)); // 2 buttons, with spacing between them
+    buttonPanel.setBackground(new Color(245, 245, 245)); // Match background color of content panel
+
+    JButton addButton = new JButton("Add to Inventory");
+    addButton.setFont(new Font("Arial", Font.BOLD, 14));
+    addButton.setBackground(new Color(30, 136, 229)); // Light blue color
+    addButton.setForeground(Color.WHITE);
+    addButton.setFocusPainted(false);
+    addButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    addButton.addActionListener(e -> {
+        addCakeToInventory();
+        addInventoryDialog.dispose();
+    });
+
+    JButton cancelButton = new JButton("Cancel");
+    cancelButton.setFont(new Font("Arial", Font.BOLD, 14));
+    cancelButton.setBackground(new Color(220, 53, 69)); // Red color for cancel
+    cancelButton.setForeground(Color.WHITE);
+    cancelButton.setFocusPainted(false);
+    cancelButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    cancelButton.addActionListener(e -> addInventoryDialog.dispose());
+
+    buttonPanel.add(addButton);
+    buttonPanel.add(cancelButton);
+
+    // Add content panel and button panel to dialog
+    addInventoryDialog.add(contentPanel, BorderLayout.CENTER);
+    addInventoryDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+    addInventoryDialog.setVisible(true);
+}
+
+
+private void updateAutocompleteSuggestions(String input) {
+    DatabaseHelper dbHelper = new DatabaseHelper();
+    autocompleteComboBox.removeAllItems();
+
+    if (input.isEmpty()) {
+        autocompleteComboBox.setVisible(false);
+        return;
+    }
+
+    // Assume a method getSuggestionsFromDatabase that returns matching results as a Vector
+    
+    Vector<String> suggestions = dbHelper.getSuggestionsFromDatabase(input);
+
+    for (String suggestion : suggestions) {
+        autocompleteComboBox.addItem(suggestion);
+    }
+
+    if (!suggestions.isEmpty()) {
+        autocompleteComboBox.setVisible(true);
+    } else {
+        autocompleteComboBox.setVisible(false);
+    }
+
+    // Handle selection from ComboBox
+    autocompleteComboBox.addActionListener(e -> {
+        String selectedItem = (String) autocompleteComboBox.getSelectedItem();
+        if (selectedItem != null) {
+            inventoryCakeNameField.setText(selectedItem);
+            autocompleteComboBox.setVisible(false);
+        }
+    });
+}
+
+private JPanel createOrderPanel() {
+    JPanel orderPanel = new JPanel(new BorderLayout());
+    orderPanel.setBackground(new Color(245, 245, 245)); // Light background color
+
+    // Main content panel with vertical stacking layout
+    JPanel contentPanel = new JPanel();
+    contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+    contentPanel.setBackground(Color.WHITE);
+    contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Add padding
+
+    // Input panel for date and buttons
+    JPanel inputPanel = new JPanel(new GridBagLayout());
+    inputPanel.setBackground(new Color(230, 230, 250)); // Light lavender background
+    inputPanel.setBorder(BorderFactory.createTitledBorder("Select Date & Actions"));
+    
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(10, 20, 10, 20);
+    gbc.gridx = 0;
+    gbc.gridy = GridBagConstraints.RELATIVE;
+
+    JLabel dateLabel = new JLabel("Select Date:");
+    dateLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+    JDateChooser dateChooser = new JDateChooser();
+    dateChooser.setPreferredSize(new Dimension(180, 30));
+    inputPanel.add(dateLabel, gbc);
+    inputPanel.add(dateChooser, gbc);
+
+    // Buttons with icons
+    JButton showSalesButton = createStyledButton2("Show Total Sales", new Color(100, 149, 237), Color.WHITE);
+    inputPanel.add(showSalesButton, gbc);
+
+    JButton addStationButton = createStyledButton2("Add New Station", new Color(100, 149, 237), Color.WHITE);
+    inputPanel.add(addStationButton, gbc);
+
+    // Station button panel using GridLayout for better alignment
+    JPanel stationButtonPanel = new JPanel(new GridLayout(0, 2, 15, 15)); // 2 columns with spacing
+    stationButtonPanel.setBackground(new Color(255, 255, 255)); // White background
+    stationButtonPanel.setBorder(BorderFactory.createTitledBorder("Station Overview"));
+
+    // Load stations from the database
+    DatabaseHelper dbHelper = new DatabaseHelper();
+    List<StationSales> stationSalesList = dbHelper.loadStationsFromDatabase();
+
+    // Add a button for each station loaded from the database
+    for (StationSales stationSale : stationSalesList) {
+        JButton stationButton = createStationButton(stationSale);
+        stationButton.setPreferredSize(new Dimension(250, 150)); // Set a uniform size for buttons
+        stationButtonPanel.add(stationButton);
+    }
+
+    // Add components to the content panel
+    contentPanel.add(inputPanel);
+    contentPanel.add(Box.createVerticalStrut(10)); // Space between sections
+    contentPanel.add(stationButtonPanel);
+
+    // Wrap contentPanel in a scroll pane
+    JScrollPane scrollPane = new JScrollPane(contentPanel);
+    scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+    scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    scrollPane.setBorder(BorderFactory.createEmptyBorder()); // Remove default border
+
+    // Add scroll pane to the main orderPanel
+    orderPanel.add(scrollPane, BorderLayout.CENTER);
+
+    // ActionListener for the "Show Total Sales" button
+    showSalesButton.addActionListener(e -> {
+    java.util.Date selectedDate = dateChooser.getDate();
+    if (selectedDate == null) {
+        JOptionPane.showMessageDialog(orderPanel, "Please select a date.", "Error", JOptionPane.ERROR_MESSAGE);
+        return;
+    }
+
+    java.sql.Date sqlDate = new java.sql.Date(selectedDate.getTime());
+    for (Component component : stationButtonPanel.getComponents()) {
+        if (component instanceof JButton) {
+            JButton stationButton = (JButton) component;
+            // Assuming that you have a JPanel inside the button that contains a station name label and total sales label
+            JPanel buttonContent = (JPanel) stationButton.getComponent(0); 
+            JLabel stationNameLabel = (JLabel) buttonContent.getComponent(0); 
+            JLabel totalSalesLabel = (JLabel) buttonContent.getComponent(1); // This should be where you show the sales
+
+            String stationName = stationNameLabel.getText();
+            double totalSales = dbHelper.fetchTotalSales(stationName, sqlDate);
+            totalSalesLabel.setText("Total Sales: " + totalSales); // Update the total sales label
+        }
+    }
+});
+
+
+    // ActionListener for the "Add New Station" button
+    addStationButton.addActionListener(e -> {
+        String stationName = JOptionPane.showInputDialog(null, "Enter Station Name:", "New Station", JOptionPane.PLAIN_MESSAGE);
+        if (stationName != null && !stationName.trim().isEmpty()) {
+            dbHelper.addStationToDatabase(stationName, 0.0);
+            JButton newStationButton = createStationButton(new StationSales(stationName, 0.0, new java.util.Date()));
+            newStationButton.setPreferredSize(new Dimension(250, 150)); // Set a uniform size for new buttons
+            stationButtonPanel.add(newStationButton);
+            stationButtonPanel.revalidate();
+            stationButtonPanel.repaint();
+            addStationToProgressTable(stationName);
+        } else {
+            JOptionPane.showMessageDialog(null, "Station name cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    });
+
+    return orderPanel;
+}
+
+
+// Helper method to create styled buttons
+private JButton createStyledButton2(String text, Color backgroundColor, Color textColor) {
+    JButton button = new JButton(text);
+    button.setBackground(backgroundColor);
+    button.setForeground(textColor);
+    button.setFocusPainted(false);
+    button.setFont(new Font("SansSerif", Font.PLAIN, 14));
+    button.setBorder(BorderFactory.createLineBorder(backgroundColor.darker()));
+    button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    return button;
+}
+
+
+// Method to create a station button with initial total sales set to 0.0
+// Method to create a station button with initial total sales set to 0.0
+private JButton createStationButton(StationSales stationSale) {
+    JButton stationButton = new JButton();
+    stationButton.setLayout(new BorderLayout());
+    stationButton.setPreferredSize(new Dimension(300, 150));
+    stationButton.setFont(new Font("Arial", Font.BOLD, 18));
+    stationButton.setBackground(new Color(100, 149, 237)); // Button background color
+    stationButton.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 2));
+    stationButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+    // Add mouse listener for hover effect
+    stationButton.addMouseListener(new java.awt.event.MouseAdapter() {
+        @Override
+        public void mouseEntered(java.awt.event.MouseEvent evt) {
+            stationButton.setBackground(new Color(70, 130, 180)); // Change background on hover
+        }
+
+        @Override
+        public void mouseExited(java.awt.event.MouseEvent evt) {
+            stationButton.setBackground(new Color(100, 149, 237)); // Revert background color
+        }
+    });
+
+    JPanel stationButtonContent = new JPanel(new BorderLayout());
+    stationButtonContent.setBackground(Color.WHITE); // Panel background
+    stationButtonContent.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Padding
+
+    JLabel stationNameLabel = new JLabel(stationSale.getStationName());
+    stationNameLabel.setFont(new Font("Arial", Font.BOLD, 20));
+    stationNameLabel.setForeground(Color.DARK_GRAY); // Text color
+
+    JLabel totalSalesLabel = new JLabel("Total Sales: 0.0"); // Initially set to 0.0
+    totalSalesLabel.setFont(new Font("Arial", Font.PLAIN, 16));
+    totalSalesLabel.setForeground(Color.GRAY); // Text color
+
+    JButton placeOrderButton = createStyledButton3("Item Distributed");
+    JButton cancelOrderButton = createStyledButton3("Item Sold");
+
+    JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 10, 10));
+    buttonPanel.add(placeOrderButton);
+    buttonPanel.add(cancelOrderButton);
+
+    stationButtonContent.add(stationNameLabel, BorderLayout.NORTH);
+    stationButtonContent.add(totalSalesLabel, BorderLayout.CENTER);
+    stationButtonContent.add(buttonPanel, BorderLayout.SOUTH);
+
+    stationButton.add(stationButtonContent, BorderLayout.CENTER);
+
+    // ActionListener for "Cakes Distributed" button
+    placeOrderButton.addActionListener(e -> openCakeDistributionDialog(stationSale.getStationName()));
+    cancelOrderButton.addActionListener(e -> openItemsSoldDialog(stationSale.getStationName()));
+
+    return stationButton;
+}
+
+// Helper method to create styled buttons
+private JButton createStyledButton3(String text) {
+    JButton button = new JButton(text);
+    button.setBackground(new Color(30, 144, 255)); // Set button background color
+    button.setForeground(Color.WHITE);
+    button.setFocusPainted(false);
+    button.setFont(new Font("SansSerif", Font.PLAIN, 14));
+    button.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5)); // Add padding
+    button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    
+    // Add mouse listener for hover effect
+    button.addMouseListener(new java.awt.event.MouseAdapter() {
+        @Override
+        public void mouseEntered(java.awt.event.MouseEvent evt) {
+            button.setBackground(new Color(0, 123, 255)); // Change background on hover
+        }
+
+        @Override
+        public void mouseExited(java.awt.event.MouseEvent evt) {
+            button.setBackground(new Color(30, 144, 255)); // Revert background color
+        }
+    });
+
+    return button;
+}
+
+ private void openCakeDistributionDialog(String stationName) {
+    JDialog distributionDialog = new JDialog(this, "Item Distribution for " + stationName, true);
+    distributionDialog.setSize(600, 400);
+    distributionDialog.setLocationRelativeTo(this); // Center the dialog
+
+    // Create the table model for distribution
+    DefaultTableModel distributionTableModel = new DefaultTableModel(
+        new Object[]{"Item Name", "Quantity", "Distribution Date"}, 0
+    );
+    JTable distributionTable = new JTable(distributionTableModel);
+
+    // Customize table appearance with Flat design
+    JTableHeader header = distributionTable.getTableHeader();
+    header.setFont(new Font("Arial", Font.BOLD, 14));
+    header.setBackground(new Color(30, 136, 229)); // Blue header
+    header.setForeground(Color.WHITE);
+    distributionTable.setRowHeight(30); // Increased row height
+    distributionTable.setShowGrid(true);
+    distributionTable.setGridColor(new Color(220, 220, 220)); // Soft grid lines
+    distributionTable.setDefaultEditor(Object.class, null); // Disable editing
+
+    // Wrap the table with a scroll pane
+    JScrollPane scrollPane = new JScrollPane(distributionTable);
+    scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+    distributionDialog.add(scrollPane, BorderLayout.CENTER);
+
+    // Button panel for Add and View Distribution buttons
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    buttonPanel.setBackground(new Color(245, 245, 245)); // Light background
+
+    JButton addDistributionButton = createFlatButton("Add Item Distribution", new Color(30, 136, 229), e -> openAddCakeDistributionDialog(stationName));
+    buttonPanel.add(addDistributionButton);
+
+    JButton viewDistributionButton = createFlatButton("View Item Distribution", new Color(30, 136, 229), e -> updateDistributionTable(distributionTableModel, stationName));
+    buttonPanel.add(viewDistributionButton);
+
+    distributionDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+    // Load the distribution data for the station
+    updateDistributionTable(distributionTableModel, stationName);
+
+    distributionDialog.setVisible(true);
+}
+
+private void openItemsSoldDialog(String stationName) {
+    JDialog salesDialog = new JDialog(this, "Item Sold for " + stationName, true);
+    salesDialog.setSize(600, 400);
+    salesDialog.setLocationRelativeTo(this); // Center the dialog
+
+    // Create the table model for sales
+    DefaultTableModel salesTableModel = new DefaultTableModel(
+        new Object[]{"Item Name", "Quantity", "Update Time"}, 0
+    );
+    JTable salesTable = new JTable(salesTableModel);
+
+    // Customize table appearance with Flat design
+    JTableHeader header = salesTable.getTableHeader();
+    header.setFont(new Font("Arial", Font.BOLD, 14));
+    header.setBackground(new Color(30, 136, 229)); // Blue header
+    header.setForeground(Color.WHITE);
+    salesTable.setRowHeight(30); // Increased row height
+    salesTable.setShowGrid(true);
+    salesTable.setGridColor(new Color(220, 220, 220)); // Soft grid lines
+    salesTable.setDefaultEditor(Object.class, null); // Disable editing
+
+    // Wrap the table with a scroll pane
+    JScrollPane scrollPane = new JScrollPane(salesTable);
+    scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+    salesDialog.add(scrollPane, BorderLayout.CENTER);
+
+    // Button panel for Add and View Sales buttons
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    buttonPanel.setBackground(new Color(245, 245, 245)); // Light background
+
+    JButton addSalesButton = createFlatButton("Add Items Sold", new Color(30, 136, 229), e -> openAddItemsSoldDialog(stationName));
+    buttonPanel.add(addSalesButton);
+
+    JButton viewSalesButton = createFlatButton("View Items Sold", new Color(30, 136, 229), e -> updateSalesTable(salesTableModel, stationName));
+    buttonPanel.add(viewSalesButton);
+
+    salesDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+    // Load the sales data for the station
+    updateSalesTable(salesTableModel, stationName);
+
+    salesDialog.setVisible(true);
+}
+
+// Helper method to create flat styled buttons
+private JButton createFlatButton(String text, Color backgroundColor, ActionListener actionListener) {
+    JButton button = new JButton(text);
+    button.setFont(new Font("Arial", Font.BOLD, 14));
+    button.setBackground(backgroundColor); 
+    button.setForeground(Color.WHITE);
+    button.setFocusPainted(false);
+    button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    button.setBorder(BorderFactory.createLineBorder(backgroundColor)); // Thin border for a flat look
+    button.addActionListener(actionListener);
+    button.setPreferredSize(new Dimension(180, 40)); // Set preferred size for the button
+    return button;
+}
+
+
+private void updateDistributionTable(DefaultTableModel distributionTableModel, String stationName) {
+    distributionTableModel.setRowCount(0);  // Clear the table
+
+    DatabaseHelper dbHelper = new DatabaseHelper();
+    List<CakeDistributed> distributedCakes = dbHelper.loadCakesDistributedForStation(stationName); // Load for specific station
+
+    for (CakeDistributed cake : distributedCakes) {
+        distributionTableModel.addRow(new Object[]{
+            cake.getCakeName(),
+            cake.getQuantity(),
+            cake.getDistributionDate()
+        });
+    }
+}
+private void updateSalesTable(DefaultTableModel salesTableModel, String stationName) {
+    salesTableModel.setRowCount(0);  // Clear the table
+
+    DatabaseHelper dbHelper = new DatabaseHelper();
+    List<ItemsSold> itemsSold = dbHelper.loadItemsSoldForStation(stationName); // Load for specific station
+
+    for (ItemsSold cake : itemsSold) {
+        salesTableModel.addRow(new Object[]{
+            cake.getCakeName(),
+            cake.getQuantity(),
+            cake.getUpdateTime()
+        });
+    }
+}
+private void openAddCakeDistributionDialog(String stationName) {
+    JDialog addDistributionDialog = new JDialog(this, "Add Item Distribution for " + stationName, true);
+    addDistributionDialog.setSize(400, 300);
+    addDistributionDialog.setLocationRelativeTo(this); // Center the dialog
+
+    // Create content panel with GridBagLayout for better control
+    JPanel contentPanel = new JPanel(new GridBagLayout());
+    contentPanel.setBackground(new Color(245, 245, 245)); // Light background color
+    contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20)); // Add padding
+
+    // GridBagConstraints for positioning components
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(10, 10, 10, 10); // Add spacing between components
+    gbc.anchor = GridBagConstraints.WEST; // Align components to the left
+
+    // Item Name ComboBox
+    contentPanel.add(new JLabel("Item Name:"), gbc);
+    String[] cakeNames = fetchCakeNames(); // Method to fetch cake names from the database
+    JComboBox<String> cakeNameComboBox = new JComboBox<>(cakeNames);
+    cakeNameComboBox.setEditable(true); // Make the combo box editable
+    cakeNameComboBox.setFont(new Font("Arial", Font.PLAIN, 16));
+    gbc.gridx = 1;
+    contentPanel.add(cakeNameComboBox, gbc);
+
+    // Quantity TextField
+    contentPanel.add(new JLabel("Quantity:"), gbc);
+    JTextField quantityField = new JTextField();
+    quantityField.setFont(new Font("Arial", Font.PLAIN, 16));
+    gbc.gridx = 1;
+    contentPanel.add(quantityField, gbc);
+
+    // Button panel for Add and Cancel buttons
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+    buttonPanel.setBackground(new Color(245, 245, 245)); // Match background color
+
+    JButton addButton = createFlatButton("Add Distribution", e -> {
+        String cakeName = (String) cakeNameComboBox.getSelectedItem();
+        int quantity = Integer.parseInt(quantityField.getText());
+
+        // Add the distribution record to the database
+        DatabaseHelper dbHelper = new DatabaseHelper();
+        dbHelper.addCakesDistributed(stationName, cakeName, quantity); // Remove the date parameter
+
+        addDistributionDialog.dispose();
+    });
+    buttonPanel.add(addButton);
+
+    JButton cancelButton = createFlatButton("Cancel", e -> addDistributionDialog.dispose());
+    buttonPanel.add(cancelButton);
+
+    // Add content panel and button panel to dialog
+    addDistributionDialog.add(contentPanel, BorderLayout.CENTER);
+    addDistributionDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+    addDistributionDialog.setVisible(true);
+}
+
+private void openAddItemsSoldDialog(String stationName) {
+    JDialog addItemsSoldDialog = new JDialog(this, "Add Items Sold for " + stationName, true);
+    addItemsSoldDialog.setSize(400, 300);
+    addItemsSoldDialog.setLocationRelativeTo(this); // Center the dialog
+
+    // Create content panel with GridBagLayout for better control
+    JPanel contentPanel = new JPanel(new GridBagLayout());
+    contentPanel.setBackground(new Color(245, 245, 245)); // Light background color
+    contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20)); // Add padding
+
+    // GridBagConstraints for positioning components
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(10, 10, 10, 10); // Add spacing between components
+    gbc.anchor = GridBagConstraints.WEST; // Align components to the left
+
+    // Item Name ComboBox
+    contentPanel.add(new JLabel("Item Name:"), gbc);
+    String[] cakeNames = fetchCakeNames(); // Method to fetch cake names from the database
+    JComboBox<String> cakeNameComboBox = new JComboBox<>(cakeNames);
+    cakeNameComboBox.setEditable(true); // Make the combo box editable
+    cakeNameComboBox.setFont(new Font("Arial", Font.PLAIN, 16));
+    gbc.gridx = 1;
+    contentPanel.add(cakeNameComboBox, gbc);
+
+    // Quantity TextField
+    contentPanel.add(new JLabel("Quantity:"), gbc);
+    JTextField quantityField = new JTextField();
+    quantityField.setFont(new Font("Arial", Font.PLAIN, 16));
+    gbc.gridx = 1;
+    contentPanel.add(quantityField, gbc);
+
+    // Button panel for Add and Cancel buttons
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+    buttonPanel.setBackground(new Color(245, 245, 245)); // Match background color
+
+    JButton addButton = createFlatButton("Add Sales", e -> {
+        String cakeName = (String) cakeNameComboBox.getSelectedItem();
+        int quantity = Integer.parseInt(quantityField.getText());
+
+        // Add the sales record to the database
+        DatabaseHelper dbHelper = new DatabaseHelper();
+        dbHelper.addItemsSold(stationName, cakeName, quantity);
+
+        addItemsSoldDialog.dispose();
+    });
+    buttonPanel.add(addButton);
+
+    JButton cancelButton = createFlatButton("Cancel", e -> addItemsSoldDialog.dispose());
+    buttonPanel.add(cancelButton);
+
+    // Add content panel and button panel to dialog
+    addItemsSoldDialog.add(contentPanel, BorderLayout.CENTER);
+    addItemsSoldDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+    addItemsSoldDialog.setVisible(true);
+}
+
+// Helper method to create flat styled buttons
+private JButton createFlatButton(String text, ActionListener actionListener) {
+    JButton button = new JButton(text);
+    button.setFont(new Font("Arial", Font.BOLD, 14));
+    button.setBackground(new Color(30, 136, 229)); // Blue background
+    button.setForeground(Color.WHITE);
+    button.setFocusPainted(false);
+    button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    button.setBorder(BorderFactory.createLineBorder(new Color(30, 136, 229))); // Thin border for flat look
+    button.addActionListener(actionListener);
+    button.setPreferredSize(new Dimension(180, 40)); // Set preferred size for consistency
+    return button;
+}
+
+private String[] fetchCakeNames() {
+    DatabaseHelper dbHelper = new DatabaseHelper();
+    List<String> cakeNamesList = dbHelper.getAllCakeNames(); // Assuming you have this method in your DatabaseHelper
+    return cakeNamesList.toArray(new String[0]); // Convert list to array
+}
+
+
+private void openStationSaleDialog(StationSales stationSale) {
+    JPanel orderPanel = new JPanel(new BorderLayout());
+
+    JPanel inputPanel = new JPanel(new GridBagLayout());
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(10, 10, 10, 10);
+    gbc.gridx = 0;
+    gbc.gridy = 0;
+
+    inputPanel.add(new JLabel("Item Name:"), gbc);
+    gbc.gridx = 1;
+    JTextField orderCakeNameField = new JTextField(15);
+    inputPanel.add(orderCakeNameField, gbc);
+
+    gbc.gridx = 0;
+    gbc.gridy = 1;
+    inputPanel.add(new JLabel("Item Quantity:"), gbc);
+    gbc.gridx = 1;
+    JTextField orderCakeQuantityField = new JTextField(15);
+    inputPanel.add(orderCakeQuantityField, gbc);
+
+    gbc.gridx = 0;
+    gbc.gridy = 2;
+    inputPanel.add(new JLabel("Date:"), gbc);
+    gbc.gridx = 1;
+    JSpinner dateSpinner = new JSpinner(new SpinnerDateModel());
+    JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(dateSpinner, "yyyy-MM-dd");
+    dateSpinner.setEditor(dateEditor);
+    inputPanel.add(dateSpinner, gbc);
+
+    JButton checkoutButton = new JButton("Checkout");
+    checkoutButton.addActionListener(new ActionListener() {
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        String cakeName = orderCakeNameField.getText();
+        int quantity;
+        try {
+            quantity = Integer.parseInt(orderCakeQuantityField.getText());
+            if (quantity <= 0) {
+                JOptionPane.showMessageDialog(null, "Quantity must be greater than zero.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            Cake cake = new Cake(cakeName, 0, quantity); // Adjust this constructor as per your Cake class
+            java.sql.Date selectedDate = new java.sql.Date(((Date) dateSpinner.getValue()).getTime());
+
+            DatabaseHelper dbHelper = new DatabaseHelper();
+            if (dbHelper.checkInventory(cakeName, quantity)) {
+                // Save the order in the station's cake table
+                dbHelper.addCakeToStation(stationSale.getStationName(), cake, selectedDate);
+                stationSale.addItem(cakeName, quantity); // Add the item to the station sale
+                JOptionPane.showMessageDialog(null, "Order processed for " + stationSale.getStationName());
+            } else {
+                JOptionPane.showMessageDialog(null, "Insufficient stock for: " + cakeName, "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(null, "Please enter a valid quantity.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+});
+
+    checkoutButton.setBackground(Color.RED);
+    checkoutButton.setForeground(Color.WHITE);
+    gbc.gridx = 0;
+    gbc.gridy = 3; // Adjusted to fit without the station dropdown
+    gbc.gridwidth = 2;
+    inputPanel.add(checkoutButton, gbc);
+
+    orderPanel.add(inputPanel, BorderLayout.NORTH);
+
+    // Optional: You can display the items added to each station sale
+    DefaultTableModel orderTableModel = new DefaultTableModel(new Object[]{"Item Name", "Quantity"}, 0);
+    JTable orderTable = new JTable(orderTableModel);
+    orderPanel.add(new JScrollPane(orderTable), BorderLayout.CENTER);
+
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    JButton printButton = new JButton("Print Order");
+    buttonPanel.add(printButton);
+
+    orderPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+    // Display the orderPanel in a dialog or frame
+    JOptionPane.showMessageDialog(null, orderPanel, stationSale.getStationName() + " Sale", JOptionPane.PLAIN_MESSAGE);
+}
+private void openCakesSoldDialog(StationSales stationSale) {
+    JPanel orderPanel = new JPanel(new BorderLayout());
+
+    JPanel inputPanel = new JPanel(new GridBagLayout());
+  
+GridBagConstraints gbc = new GridBagConstraints();
+
+// Set padding and spacing for each component
+gbc.insets = new Insets(10, 10, 10, 10);
+
+// Row 0: Cake Name Label and TextField
+gbc.gridx = 0; // First column
+gbc.gridy = 0; // First row
+inputPanel.add(new JLabel("Item Name:"), gbc);
+
+gbc.gridx = 1; // Second column
+JTextField soldCakeNameField = new JTextField(15);
+inputPanel.add(soldCakeNameField, gbc);
+
+// Row 1: Cake Quantity Sold Label and TextField
+gbc.gridx = 0; // First column
+gbc.gridy = 1; // Second row
+inputPanel.add(new JLabel("Item Quantity Sold:"), gbc);
+
+gbc.gridx = 1; // Second column
+JTextField soldCakeQuantityField = new JTextField(15);
+inputPanel.add(soldCakeQuantityField, gbc);
+
+// Row 2: Select Date Label and DateChooser
+gbc.gridx = 0; // First column
+gbc.gridy = 2; // Third row
+JLabel dateLabel = new JLabel("Select Date:");
+inputPanel.add(dateLabel, gbc);
+
+gbc.gridx = 1; // Second column
+JDateChooser dateChooser = new JDateChooser();
+dateChooser.setPreferredSize(new Dimension(150, 30)); // Set size of the date picker
+inputPanel.add(dateChooser, gbc);
+
+
+
+// Additional logic to handle events or actions can be added here
+
+
+    
+    JButton soldButton = new JButton("Record Sale");
+    soldButton.addActionListener(new ActionListener() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            String cakeName = soldCakeNameField.getText();
+            int quantity;
+            try {
+                quantity = Integer.parseInt(soldCakeQuantityField.getText());
+                if (quantity <= 0) {
+                    JOptionPane.showMessageDialog(null, "Quantity must be greater than zero.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                // Logic to record the sale, e.g., reduce inventory, etc.
+                DatabaseHelper dbHelper = new DatabaseHelper();
+                if (dbHelper.checkInventory(cakeName, quantity)) {
+                    stationSale.addItem(cakeName, -quantity); // Negate quantity to reflect sold
+                    JOptionPane.showMessageDialog(null, "Sale recorded for " + quantity + " " + cakeName + "(s) at " + stationSale.getStationName());
+                } else {
+                    JOptionPane.showMessageDialog(null, "Insufficient stock for: " + cakeName, "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(null, "Please enter a valid quantity.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    });
+
+    gbc.gridx = 1;
+    gbc.gridy = 3; 
+    gbc.gridwidth = 2;
+    inputPanel.add(soldButton, gbc);
+
+    orderPanel.add(inputPanel, BorderLayout.NORTH);
+
+    // Optional: You can display the items sold in a table
+    DefaultTableModel soldTableModel = new DefaultTableModel(new Object[]{"Item Name", "Quantity Sold"}, 0);
+    JTable soldTable = new JTable(soldTableModel);
+    orderPanel.add(new JScrollPane(soldTable), BorderLayout.CENTER);
+
+    // Display the orderPanel in a dialog or frame
+    JOptionPane.showMessageDialog(null, orderPanel, "Record Items Sold - " + stationSale.getStationName(), JOptionPane.PLAIN_MESSAGE);
+}
+
+
+
+private JPanel createDashboardPanel() {
+    // Apply FlatLaf Light theme
+    try {
+        UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+
+    JPanel dashboardPanel = new JPanel(new BorderLayout());
+    dashboardPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Padding around the panel
+
+    // Sales Graph Panel
+    JPanel salesGraphPanel = createSalesGraphPanel();
+    salesGraphPanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor")),
+            "Sales Overview",
+            SwingConstants.LEFT, SwingConstants.TOP, // Corrected the alignment constants
+            UIManager.getFont("Label.font")));
+    dashboardPanel.add(salesGraphPanel, BorderLayout.NORTH);
+
+    // Top Selling Items Table Panel
+    JPanel topSellingPanel = new JPanel(new BorderLayout());
+    topSellingPanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor")),
+            "Top Selling Items",
+            SwingConstants.LEFT, SwingConstants.TOP, // Corrected the alignment constants
+            UIManager.getFont("Label.font")));
+
+    topSellingCakesTableModel = new DefaultTableModel(new Object[]{"Item Name", "Quantity Sold", "Total Sales"}, 0);
+    JTable topSellingCakesTable = new JTable(topSellingCakesTableModel);
+    topSellingCakesTable.setRowHeight(30);
+    topSellingCakesTable.setFont(UIManager.getFont("Table.font"));
+    topSellingCakesTable.setGridColor(UIManager.getColor("Table.gridColor"));
+
+    JTableHeader header = topSellingCakesTable.getTableHeader();
+    header.setFont(UIManager.getFont("TableHeader.font"));
+    header.setBackground(UIManager.getColor("TableHeader.background"));
+    header.setForeground(UIManager.getColor("TableHeader.foreground"));
+
+    JScrollPane tableScrollPane = new JScrollPane(topSellingCakesTable);
+    topSellingPanel.add(tableScrollPane, BorderLayout.CENTER);
+    dashboardPanel.add(topSellingPanel, BorderLayout.CENTER);
+
+    // Pie Chart Panel for Popular Items
+    JPanel pieChartPanel = new JPanel(new BorderLayout());
+    pieChartPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+
+    JLabel pieChartLabel = new JLabel("Popular Items", JLabel.CENTER);
+    pieChartLabel.setFont(UIManager.getFont("Label.font").deriveFont(Font.BOLD, 16));
+    pieChartPanel.add(pieChartLabel, BorderLayout.NORTH);
+
+    // Pie chart dataset
+    DefaultPieDataset<String> pieDataset = new DefaultPieDataset<>();
+    List<CakeSalesRecord> popularCakes = dbHelper.getCombinedPopularCakes(); // Assume this fetches data
+    for (CakeSalesRecord cakeRecord : popularCakes) {
+        pieDataset.setValue(cakeRecord.getCakeName(), cakeRecord.getQuantitySold());
+    }
+
+    // Create pie chart
+    JFreeChart pieChart = ChartFactory.createPieChart(
+            null,
+            pieDataset,
+            true,
+            true,
+            false
+    );
+
+    PiePlot plot = (PiePlot) pieChart.getPlot();
+    plot.setBackgroundPaint(UIManager.getColor("Panel.background"));
+    plot.setLabelFont(UIManager.getFont("Label.font"));
+
+    ChartPanel chartPanel = new ChartPanel(pieChart);
+    chartPanel.setPreferredSize(new Dimension(400, 300));
+    pieChartPanel.add(chartPanel, BorderLayout.CENTER);
+
+    dashboardPanel.add(pieChartPanel, BorderLayout.EAST);
+
+    // Sales Report Panel
+    JPanel reportPanel = new JPanel(new BorderLayout());
+    reportPanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor")),
+            "Sales Report",
+            SwingConstants.LEFT, SwingConstants.TOP, // Corrected the alignment constants
+            UIManager.getFont("Label.font")));
+
+    JTextArea reportArea = new JTextArea();
+    reportArea.setEditable(false);
+    reportArea.setFont(UIManager.getFont("TextArea.font"));
+    reportArea.setBackground(UIManager.getColor("TextArea.background"));
+    JScrollPane reportScrollPane = new JScrollPane(reportArea);
+    reportPanel.add(reportScrollPane, BorderLayout.CENTER);
+
+    dashboardPanel.add(reportPanel, BorderLayout.WEST);
+
+    // Button Panel
+    JButton generateReportButton = createStyledButton("Generate Report", new Color(52, 152, 219), Color.WHITE);
+    generateReportButton.addActionListener(e -> generateSalesReport(reportArea));
+
+    JButton downloadReportButton = createStyledButton("Download Sales Report", new Color(46, 204, 113), Color.WHITE);
+    downloadReportButton.addActionListener(e -> downloadSalesReport());
+
+    JPanel buttonPanel = new JPanel();
+    buttonPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
+    buttonPanel.add(generateReportButton);
+    buttonPanel.add(downloadReportButton);
+    buttonPanel.setOpaque(false);
+
+    dashboardPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+    // Load data for the top-selling cakes table
+    updateTopSellingCakesTable();
+
+    return dashboardPanel;
+}
+
+/**
+ * Creates a styled button with the specified text, background, and text color.
+ */
+
+
+
+// Helper method to create modern-styled buttons
+private JButton createStyledButton7(String text, Color backgroundColor, Color textColor) {
+    JButton button = new JButton(text);
+    button.setBackground(backgroundColor);
+    button.setForeground(textColor);
+    button.setFocusPainted(false);
+    button.setFont(UIManager.getFont("Button.font"));
+    button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+    return button;
+}
+
+
+
+private JPanel createProgressPanel(JTabbedPane tabbedPane) {
+    JPanel progressPanel = new JPanel(new BorderLayout());
+    progressPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20)); // Add padding around the panel
+
+    // Initialize table model
+    String[] columnNames = {"Station Name", "Action"};
+    progressTableModel = new DefaultTableModel(columnNames, 0); // Start with an empty model
+
+    // Create the table
+    JTable progressTable = new JTable(progressTableModel);
+    progressTable.setRowHeight(35); // Set row height for better readability
+    progressTable.setDefaultEditor(Object.class, null);
+
+    // Add button in the "Action" column
+    TableButton actionButton = new TableButton("View");
+    actionButton.addTableButtonListener((row, col) -> {
+        // Get the station name from the selected row
+        String stationName = (String) progressTableModel.getValueAt(row, 0);
+        System.out.println("View clicked for station: " + stationName);
+
+        // Create the station progress panel for the selected station
+        JPanel stationProgressPanel = createStationProgressPanel(stationName, tabbedPane);
+
+        // Add the new tab for the station view
+        tabbedPane.addTab(stationName + " Progress", stationProgressPanel);
+
+        // Switch to the new tab
+        tabbedPane.setSelectedComponent(stationProgressPanel);
+    });
+
+    // Set up button renderer and editor
+    progressTable.getColumnModel().getColumn(1).setCellRenderer(actionButton);
+    progressTable.getColumnModel().getColumn(1).setCellEditor(actionButton);
+
+    // Customize table appearance
+    JTableHeader tableHeader = progressTable.getTableHeader();
+    tableHeader.setFont(new Font("Arial", Font.BOLD, 14));
+    tableHeader.setBackground(new Color(70, 130, 180)); // Modern, darker blue header
+    tableHeader.setForeground(Color.WHITE);
+
+    progressTable.setGridColor(new Color(220, 220, 220)); // Light grid color
+    progressTable.setSelectionBackground(new Color(100, 149, 237)); // Blue selection background
+    progressTable.setSelectionForeground(Color.WHITE); // White text on selection
+
+    // Alternate row colors for better readability
+    progressTable.setDefaultRenderer(Object.class, new TableCellRenderer() {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            JLabel label = new JLabel(value.toString());
+            label.setOpaque(true);
+            if (isSelected) {
+                label.setBackground(new Color(100, 149, 237)); // Blue for selected rows
+                label.setForeground(Color.WHITE);
+            } else {
+                label.setBackground(row % 2 == 0 ? new Color(245, 245, 245) : Color.WHITE); // Alternating row colors
+                label.setForeground(Color.BLACK);
+            }
+            return label;
+        }
+    });
+
+    // Add table to a scroll pane
+    JScrollPane tableScrollPane = new JScrollPane(progressTable);
+    tableScrollPane.setPreferredSize(new Dimension(650, 350)); // Larger size for more visible content
+    tableScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+    tableScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    tableScrollPane.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200))); // Add a subtle border
+
+    // Add components to the progress panel
+    JLabel titleLabel = new JLabel("Sales Progress", JLabel.CENTER);
+    titleLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
+    titleLabel.setForeground(new Color(70, 130, 180)); // Title with the same color as the table header
+    titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0)); // Add space around the label
+    progressPanel.add(titleLabel, BorderLayout.NORTH);
+    progressPanel.add(tableScrollPane, BorderLayout.CENTER);
+
+    // Load stations into progress table when the panel is created
+    loadStationsIntoProgressTable(); // This will load the stations when the panel is created
+
+    return progressPanel;
+}
+
+
+
+// Method to add a new station
+
+
+// Method to load stations into the progress table
+private void loadStationsIntoProgressTable() {
+    // Clear existing rows in the model
+    progressTableModel.setRowCount(0);
+
+    // Get the list of stations from the database
+    DatabaseHelper dbHelper = new DatabaseHelper();
+    List<StationSales> stations = dbHelper.loadStationsFromDatabase(); // Assuming this returns a list of StationSales objects
+
+    // Add each station to the progress table model
+    for (StationSales stationSale : stations) {
+        addStationToProgressTable(stationSale.getStationName()); // Assuming getStationName() returns the station name
+    }
+}
+
+// Method to add a station to the progress table
+private void addStationToProgressTable(String stationName) {
+    // Add a new row for the added station in the progress table model
+    progressTableModel.addRow(new Object[]{stationName, "View"});
+}
+
+
+
+// Method to create a progress panel for the selected station
+
+public JPanel createStationProgressPanel(String stationName, JTabbedPane tabbedPane) {
+    JPanel stationPanel = new JPanel(new BorderLayout());
+    stationPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+    stationPanel.setBackground(new Color(240, 240, 240));
+
+    // Close button setup
+    JButton closeButton = new JButton("Close");
+    closeButton.setBackground(new Color(220, 53, 69));
+    closeButton.setForeground(Color.WHITE);
+    closeButton.setFocusPainted(false);
+    closeButton.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+    closeButton.setFont(new Font("Arial", Font.BOLD, 12));
+    closeButton.addActionListener(e -> {
+        int index = tabbedPane.indexOfComponent(stationPanel);
+        if (index != -1) {
+            tabbedPane.remove(index);
+        }
+    });
+
+    JPanel headerPanel = new JPanel(new BorderLayout());
+    headerPanel.setBackground(new Color(52, 152, 219));
+    headerPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+    headerPanel.add(closeButton, BorderLayout.EAST);
+
+    // Label for station name
+    JLabel stationLabel = new JLabel("Progress for " + stationName, JLabel.CENTER);
+    stationLabel.setFont(new Font("Arial", Font.BOLD, 18));
+    stationLabel.setForeground(Color.WHITE);
+    headerPanel.add(stationLabel, BorderLayout.CENTER);
+    stationPanel.add(headerPanel, BorderLayout.NORTH);
+
+    // --- Time Series Chart for Daily Items Sold ---
+    TimeSeries itemsSoldSeries = new TimeSeries("Items Sold");
+
+    // Retrieve data and aggregate by date
+    List<ItemsSold> itemsSoldRecords = dbHelper.loadItemsSold();
+    Map<Day, Integer> aggregatedItemsSold = new HashMap<>();
+
+    for (ItemsSold record : itemsSoldRecords) {
+        if (record.getStationName().equals(stationName)) {
+            Day date = new Day(record.getUpdateTime());
+            aggregatedItemsSold.merge(date, record.getQuantity(), Integer::sum);
+        }
+    }
+
+    for (Map.Entry<Day, Integer> entry : aggregatedItemsSold.entrySet()) {
+        itemsSoldSeries.addOrUpdate(entry.getKey(), entry.getValue());
+    }
+
+    TimeSeriesCollection itemsSoldDataset = new TimeSeriesCollection(itemsSoldSeries);
+    JFreeChart itemsSoldChart = ChartFactory.createTimeSeriesChart(
+            "Daily Items Sold Progress",
+            "Date",
+            "Quantity Sold",
+            itemsSoldDataset,
+            true,
+            true,
+            false
+    );
+
+    ChartPanel itemsSoldChartPanel = new ChartPanel(itemsSoldChart);
+    itemsSoldChartPanel.setPreferredSize(new Dimension(500, 300));
+    itemsSoldChartPanel.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
+    stationPanel.add(itemsSoldChartPanel, BorderLayout.CENTER);
+
+    // --- Daily Sales Bar Chart ---
+Map<String, List<DailySales>> allSalesRecords = dbHelper.fetchDailySalesForAllStations(stationName);
+
+
+    // Retrieve the sales records for the specific station
+    List<DailySales> dailySalesRecords = allSalesRecords.get(stationName);
+
+    DefaultCategoryDataset dailySalesDataset = new DefaultCategoryDataset();
+
+    if (dailySalesRecords != null) {
+        // Process dailySalesRecords as usual
+        for (DailySales salesRecord : dailySalesRecords) {
+            String dateString = new SimpleDateFormat("yyyy-MM-dd").format(salesRecord.getSalesDate());
+            dailySalesDataset.addValue(salesRecord.getTotalSales(), "Total Sales", dateString);
+        }
+
+        JFreeChart dailySalesChart = ChartFactory.createBarChart(
+                "Daily Sales Progress",
+                "Date",
+                "Total Sales (Amount)",
+                dailySalesDataset
+        );
+
+        ChartPanel dailySalesChartPanel = new ChartPanel(dailySalesChart);
+        dailySalesChartPanel.setPreferredSize(new Dimension(500, 300));
+        dailySalesChartPanel.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
+        stationPanel.add(dailySalesChartPanel, BorderLayout.SOUTH);
+    } else {
+        // Handle the case where no records are found for the given station name
+        System.out.println("No sales records found for station: " + stationName);
+    }
+
+    // --- Popular Cakes Pie Chart ---
+    JPanel bottomPanel = new JPanel(new BorderLayout());
+    bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+    bottomPanel.setBackground(new Color(240, 240, 240));
+
+    JLabel pieChartLabel = new JLabel("Popular Items", JLabel.CENTER);
+    pieChartLabel.setFont(new Font("Arial", Font.BOLD, 16));
+    pieChartLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+    bottomPanel.add(pieChartLabel, BorderLayout.NORTH);
+
+    DefaultPieDataset<String> pieDataset = new DefaultPieDataset<>();
+    List<CakeSalesRecord> cakeSalesRecords = dbHelper.fetchPopularCakes(stationName);
+
+    for (CakeSalesRecord cakeRecord : cakeSalesRecords) {
+        pieDataset.setValue(cakeRecord.getCakeName(), cakeRecord.getQuantitySold());
+    }
+
+    JFreeChart pieChart = ChartFactory.createPieChart(
+            null,
+            pieDataset,
+            true,
+            true,
+            false
+    );
+
+    PiePlot plot = (PiePlot) pieChart.getPlot();
+    plot.setSectionOutlinesVisible(false);
+    plot.setLabelFont(new Font("Arial", Font.PLAIN, 12));
+    plot.setCircular(true);
+    plot.setBackgroundPaint(new Color(240, 240, 240));
+
+    ChartPanel pieChartPanel = new ChartPanel(pieChart);
+    pieChartPanel.setPreferredSize(new Dimension(500, 300));
+    pieChartPanel.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
+    bottomPanel.add(pieChartPanel, BorderLayout.CENTER);
+
+    stationPanel.add(bottomPanel, BorderLayout.SOUTH);
+
+    stationPanel.revalidate();
+    stationPanel.repaint();
+
+    return stationPanel;
+}
+
+
+
+private void updateTopSellingCakesTable() {
+    topSellingCakesTableModel.setRowCount(0); // Clear previous data
+    List<CakeSalesRecord> topSellingCakes = dbHelper.getTopSellingCakes(); // Fetch data
+
+    for (CakeSalesRecord record : topSellingCakes) {
+        double totalSales = record.getTotalSales(); // Access total sales directly from CakeSalesRecord
+        topSellingCakesTableModel.addRow(new Object[]{record.getCakeName(), record.getQuantitySold(), totalSales});
+        System.out.println("Added to Table: " + record.getCakeName() + ", " + record.getQuantitySold() + ", " + totalSales); // Debug line
+    }
+}
+
+
+
+    private JPanel createSalesGraphPanel() {
+    TimeSeriesCollection dataset = new TimeSeriesCollection();
+    TimeSeries salesSeries = new TimeSeries("Total Sales");
+
+    // Fetch sales data from the database
+    List<StationSales> salesList = dbHelper.getCombinedStationSales();
+
+    // Aggregate sales data by date
+    Map<Day, Double> aggregatedSales = new HashMap<>();
+
+    for (StationSales sale : salesList) {
+        Day salesDate = new Day(sale.getSalesDate());
+        double totalSales = sale.getTotalSales();
+
+        // Aggregate sales
+        aggregatedSales.merge(salesDate, totalSales, Double::sum);
+    }
+
+    // Add aggregated sales to TimeSeries
+    for (Map.Entry<Day, Double> entry : aggregatedSales.entrySet()) {
+        salesSeries.addOrUpdate(entry.getKey(), entry.getValue());
+    }
+
+    dataset.addSeries(salesSeries);
+
+    JFreeChart chart = ChartFactory.createTimeSeriesChart(
+            "Total Sales Over Time",
+            "Date",
+            "Sales Amount",
+            dataset,
+            true,
+            true,
+            false
+    );
+
+    ChartPanel chartPanel = new ChartPanel(chart);
+    chartPanel.setPreferredSize(new Dimension(700, 400));
+    chartPanel.setMouseWheelEnabled(true);
+
+    return chartPanel;
+}
+
+   
+
+    private void addCakeToInventory() {
+        String name = inventoryCakeNameField.getText();
+        double price = Double.parseDouble(inventoryCakePriceField.getText());
+        int quantity = Integer.parseInt(inventoryCakeQuantityField.getText());
+      
+        Cake cake = new Cake(name, price, quantity);
+        inventory.addCake(cake);
+
+        dbHelper.addInventoryItem(cake);
+
+        updateInventoryTable();
+    }
+
+   private void updateInventoryTable() {
+        inventoryTableModel.setRowCount(0);
+        List<Cake> cakes = dbHelper.getInventoryItems();
+        for (Cake cake : cakes) {
+            inventoryTableModel.addRow(new Object[]{cake.getName(), cake.getPrice(), cake.getQuantity(),cake.getInventoryDate()});
+        }
+        
+    }
+
+    private void updateStationSalesTable() {
+        stationSalesTableModel.setRowCount(0);
+        Date filterDate = new Date(((java.util.Date) dateSpinner.getValue()).getTime());
+        List<StationSales> stationSalesList = dbHelper.getStationSales(filterDate);
+        for (StationSales sale : stationSalesList) {
+            stationSalesTableModel.addRow(new Object[]{sale.getStationName(), sale.getTotalSales(), sale.getSalesDate()});
+        }
+    }
+
+ private void downloadOrders() {
+    JFileChooser fileChooser = new JFileChooser();
+    int option = fileChooser.showSaveDialog(this);
+    if (option == JFileChooser.APPROVE_OPTION) {
+        File file = fileChooser.getSelectedFile();
+        if (!file.getName().endsWith(".csv")) {
+            file = new File(file.getAbsolutePath() + ".csv");
+        }
+        
+        // Fetch order data from the database
+        DatabaseHelper dbHelper = new DatabaseHelper();
+        List<Cake> orderList = dbHelper.getOrders();
+        
+        try (FileWriter writer = new FileWriter(file)) {
+            // Write the header
+            writer.write("Name,Price,Quantity,Total Price,Order Date\n");
+
+            // Write each order item to the file
+            for (Cake cake : orderList) {
+                writer.write(cake.getName() + ",");
+                writer.write(cake.getPrice() + ",");
+                writer.write(cake.getQuantity() + ",");
+                writer.write(cake.getTotalPrice() + ",");
+                writer.write(cake.getOrderDate() + "\n");  // Assuming Cake has getOrderDate()
+            }
+            
+            JOptionPane.showMessageDialog(this, "Order data saved successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error saving order data: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+}
+
+
+private void downloadInventory() {
+    JFileChooser fileChooser = new JFileChooser();
+    int option = fileChooser.showSaveDialog(this);
+    if (option == JFileChooser.APPROVE_OPTION) {
+        File file = fileChooser.getSelectedFile();
+        if (!file.getName().endsWith(".csv")) {
+            file = new File(file.getAbsolutePath() + ".csv");
+        }
+        
+        // Fetch inventory data from the database
+        DatabaseHelper dbHelper = new DatabaseHelper();
+        List<Cake> inventoryList = dbHelper.getInventoryItems();
+        
+        try (FileWriter writer = new FileWriter(file)) {
+            // Write the header
+            writer.write("Name,Price,Quantity,Inventory Date\n");
+
+            // Write each inventory item to the file
+            for (Cake cake : inventoryList) {
+                writer.write(cake.getName() + ",");
+                writer.write(cake.getPrice() + ",");
+                writer.write(cake.getQuantity() + ",");
+                writer.write(cake.getInventoryDate() + "\n");  // Assuming Cake has getInventoryDate()
+            }
+            
+            JOptionPane.showMessageDialog(this, "Inventory data saved successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error saving inventory data: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+}
+
+  
+    
+
+  private void generateSalesReport(JTextArea reportArea) {
+    StringBuilder report = new StringBuilder();
+
+    // Generate the report content
+    report.append("Sales Report\n");
+    report.append("====================\n");
+
+    // Fetch total sales data for the report
+    double totalSales = dbHelper.getTotalSales();
+    report.append("Total Sales: ").append(totalSales).append("\n");
+
+    // Fetch top selling cakes data for the report
+    List<CakeSalesRecord> topSellingCakes = dbHelper.getTopSellingCakes();
+    report.append("\nTop Selling Cakes:\n");
+    for (CakeSalesRecord record : topSellingCakes) {
+        report.append(record.getCakeName()).append(": ")
+               .append(record.getQuantitySold()).append(" sold, ")
+               .append(record.getTotalSales()).append(" total sales\n");
+    }
+
+    // Update the report area with the generated report
+    reportArea.setText(report.toString());
+}
+private void downloadSalesReport() {
+    // Generate the sales report as a String
+    StringBuilder report = new StringBuilder();
+    report.append("Sales Report\n");
+    report.append("====================\n");
+
+    // Fetch total sales data for the report
+    double totalSales = dbHelper.getTotalSales();
+    report.append("Total Sales: ").append(totalSales).append("\n");
+
+    // Fetch top selling cakes data for the report
+    List<CakeSalesRecord> topSellingCakes = dbHelper.getTopSellingCakes();
+    report.append("\nTop Selling Cakes:\n");
+    for (CakeSalesRecord record : topSellingCakes) {
+        report.append(record.getCakeName()).append(": ")
+               .append(record.getQuantitySold()).append(" sold, ")
+               .append(record.getTotalSales()).append(" total sales\n");
+    }
+
+    // Save the report to a file
+    try {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Save Report");
+        fileChooser.setSelectedFile(new File("sales_report.txt")); // Default file name
+
+        int userSelection = fileChooser.showSaveDialog(null);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileToSave))) {
+                writer.write(report.toString());
+                JOptionPane.showMessageDialog(null, "Sales report saved successfully!");
+            }
+        }
+    } catch (IOException e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(null, "Error saving the sales report.", "Error", JOptionPane.ERROR_MESSAGE);
+    }
+}
+
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            CakeShopPOS app = new CakeShopPOS();
+            app.setVisible(true);
+        });
+    }
+}
